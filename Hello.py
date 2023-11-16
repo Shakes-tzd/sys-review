@@ -28,7 +28,8 @@ def main():
     st.set_page_config(page_title="Systematic Review Assistant", page_icon="🔍")
 
     # OpenAI API key setup (ensure your API key is securely stored)
-    openai.api_key = st.secrets["openai_api_key"]
+    openai.api_key = st.secrets["openai"]["api_key"]
+
 
     # Sidebar for file upload
     st.sidebar.title("Upload Article")
