@@ -1,51 +1,73 @@
-# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022)
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import streamlit as st
-from streamlit.logger import get_logger
+import openai
+import pandas as pd
+import io
+from PyPDF2 import PdfReader
 
-LOGGER = get_logger(__name__)
+# Function to read PDF file and convert it to text
+def pdf_to_text(file_data):
+    reader = PdfReader(file_data)
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text() + "\n"
+    return text
 
-
-def run():
-    st.set_page_config(
-        page_title="Hello",
-        page_icon="👋",
+# Function to send prompt to OpenAI and get response
+def query_openai(prompt):
+    response = openai.Completion.create(
+        model="text-davinci-003",  # You can update the model as needed
+        prompt=prompt,
+        temperature=0.5,
+        max_tokens=500
     )
+    return response.choices[0].text.strip()
 
-    st.write("# Welcome to Streamlit! 👋")
+# Streamlit App
+def main():
+    # Set up Streamlit page
+    st.set_page_config(page_title="Systematic Review Assistant", page_icon="🔍")
 
-    st.sidebar.success("Select a demo above.")
+    # OpenAI API key setup (ensure your API key is securely stored)
+    openai.api_key = st.secrets["openai_api_key"]
 
-    st.markdown(
-        """
-        Streamlit is an open-source app framework built specifically for
-        Machine Learning and Data Science projects.
-        **👈 Select a demo from the sidebar** to see some examples
-        of what Streamlit can do!
-        ### Want to learn more?
-        - Check out [streamlit.io](https://streamlit.io)
-        - Jump into our [documentation](https://docs.streamlit.io)
-        - Ask a question in our [community
-          forums](https://discuss.streamlit.io)
-        ### See more complex demos
-        - Use a neural net to [analyze the Udacity Self-driving Car Image
-          Dataset](https://github.com/streamlit/demo-self-driving)
-        - Explore a [New York City rideshare dataset](https://github.com/streamlit/demo-uber-nyc-pickups)
-    """
-    )
+    # Sidebar for file upload
+    st.sidebar.title("Upload Article")
+    uploaded_file = st.sidebar.file_uploader("Choose a file", type=['pdf', 'txt'])
+    
+    # Main area
+    st.title("Systematic Review Assistant")
+    st.markdown("## Full-Text Review and Data Extraction")
 
+    # Process uploaded file
+    if uploaded_file:
+        file_extension = uploaded_file.name.split('.')[-1].lower()
+        if file_extension == 'pdf':
+            text_content = pdf_to_text(uploaded_file)
+        elif file_extension == 'txt':
+            text_content = uploaded_file.getvalue().decode("utf-8")
+        else:
+            st.error("Unsupported file format.")
+            return
+
+        # Display extracted text (optional)
+        st.markdown("### Extracted Text")
+        st.text_area("Content", text_content, height=300)
+
+        # OpenAI Prompt
+        prompt = f"Extract the following information from the article: 1) Number of patients in the study, 2) Average age of patients, 3) Minimum and maximum ages, 4) Time for facial reinnervation (min and max), 5) Follow-up duration.\n\n{text_content}"
+        extracted_info = query_openai(prompt)
+
+        # Display extracted information
+        st.markdown("### Extracted Information")
+        st.text_area("Extracted Data", extracted_info, height=150)
+
+        # Confirmation button
+        if st.button("Confirm Extracted Data"):
+            # Processing confirmed data (e.g., saving to a DataFrame)
+            st.success("Data confirmed and processed.")
+
+    else:
+        st.write("Please upload an article to proceed.")
 
 if __name__ == "__main__":
-    run()
+    main()
